@@ -20,6 +20,14 @@ int key = 0;
 int IGN = 0;
 int SW = 0;
 bool rcCH10 = 0;
+// Define pin numbers for motor driver inputs
+const int brakepwmPin = 6;    // PWM pin for speed control
+const int brakedirPin = 54;    // Direction pin
+const int limitSwitch1 = 3;  // Limit switch 1 (fully extended)
+const int limitSwitch2 = 4;  // Limit switch 2 (fully retracted)
+// Define variables for motor speed and direction
+int brakespeed = 255;  // Adjust speed as needed (0-255 for PWM)
+bool brakedirection = HIGH;  // HIGH for extending, LOW for retracting
 
 AS5600 as5600;   //  use default Wire
 
@@ -69,6 +77,13 @@ void setup() {
   // put your setup code here, to run once:
 Wire.begin();
 as5600.begin();  // Initialize AS5600 sensor
+
+pinMode(brakepwmPin, OUTPUT);
+pinMode(brakedirPin, OUTPUT);
+  // Initialize limit switch pins
+pinMode(limitSwitch1, INPUT_PULLUP);
+pinMode(limitSwitch2, INPUT_PULLUP);
+
 pinMode(PWM, OUTPUT);
 pinMode(DIR, OUTPUT);
 
@@ -121,17 +136,6 @@ void loop() {
   Serial.print(" Ch6 = ");
   Serial.print(rcCH6);
 
-  Serial.print(" Ch7 = ");
-  Serial.print(key);
-
-  // Serial.print(" Ch8 = ");
-  // Serial.print(IGN);
-
-  // Serial.print(" Ch9 = ");
-  // Serial.print(SW);
-
-  Serial.print(" Ch10 = ");
-  Serial.println(rcCH10);
 ///////////////////////  KEY  ///////////////
 if(key ==0){
   digitalWrite(23,HIGH);
@@ -148,7 +152,7 @@ else if(IGN == 0){
 }
 //////////////////// Throttle/reverse ////////////////
 int throttlespeed = map(throttlespeedch,1000,2000,0,180);
-if (throttle_val == 0){
+if (throttle_val == 0 || rcCH10 == LOW){
 analogWrite(2,0);
 }
 
@@ -196,10 +200,43 @@ setpoint = map(steer,-100,100,80,-80);
   // Control motor speed based on PID output
   if (angle < setpoint) {
      digitalWrite(motorDirectionPin, HIGH); // Set motor direction forward
-    digitalWrite(motorSpeedPin, abs(scaledOutput)); // Set motor speed
+    digitalWrite(motorSpeedPin, scaledOutput); // Set motor speed
   } else {
      digitalWrite(motorDirectionPin, LOW); // Set motor direction reverse
-    digitalWrite(motorSpeedPin, abs(scaledOutput)); // Set motor speed
+    digitalWrite(motorSpeedPin, scaledOutput); // Set motor speed
+  }
+///////////////////////////////////Brake/////////////////////
+bool canExtend = !digitalRead(limitSwitch1);
+  bool canRetract = !digitalRead(limitSwitch2);
+
+  // Move the actuator based on RC receiver switch state and limit switch conditions
+  if (rcCH10 == HIGH && canExtend) {
+    moveActuator(brakespeed, HIGH);  // Extend
+  } else if (rcCH10 == LOW && canRetract) {
+    moveActuator(brakespeed, LOW);  // Retract
+  } else {
+    stopActuator();  // Stop if limit reached or switch state invalid
   }
 
+  Serial.print(" Ch7 = ");
+  Serial.print(output);
+
+  // Serial.print(" Ch8 = ");
+  // Serial.print(IGN);
+
+  // Serial.print(" Ch9 = ");
+  // Serial.print(SW);
+
+  Serial.print(" Ch10 = ");
+  Serial.println(scaledOutput);
+}
+// Function to move the actuator with specified speed and direction
+void moveActuator(int speedValue, bool dirValue) {
+  analogWrite(brakepwmPin, speedValue);  // Set PWM for speed control
+  digitalWrite(brakedirPin, dirValue);   // Set direction
+}
+
+// Function to stop the actuator
+void stopActuator() {
+  analogWrite(brakepwmPin, 0);  // Stop PWM
 }
