@@ -10,10 +10,10 @@ IBusBM ibus;
 #define PWM 5
 #define DIR A1
 
-int rcCH1 = 0; // Left - Right
-int throttle_val = 0; // Forward - Reverse
-int rcCH3 = 0; // Acceleration
-int steer = 0; // Spin Control
+int rcCH1 = 0;
+int throttle_val = 0; 
+int rcCH3 = 0;
+int steer = 0; 
 int throttlespeedch = 0;
 int rcCH6 = 0;
 int key = 0;
@@ -31,16 +31,10 @@ bool brakedirection = HIGH;  // HIGH for extending, LOW for retracting
 
 AS5600 as5600;   //  use default Wire
 
-// volatile int posi ; // specify posi as volatile
-// long prevT = 0;
-// float eprev = 0;
-// float eintegral = 0;
-// int target ;
-
-// Define PID constants
-double Kp = 1;//180
-double Ki = 0.001;//10
-double Kd = 0.001;//50
+// Define PID constants for steering
+double Kp = 2.6;//1
+double Ki = 0.000001;//0.001
+double Kd = 0.0000001;//0.001
 
 // Define variables for PID
 double setpoint = 0.0;
@@ -109,7 +103,7 @@ void loop() {
   rcCH1 = readChannel(0, -100, 100, 0);
   throttle_val = readChannel(1, -100, 100, 0);
   rcCH3 = readChannel(2, 0, 155, 0);
-  steer = readChannel(3, -100, 100, 0);
+  steer = readChannel(3, 10000, -10000, 0);
   throttlespeedch = readChannel(4, 1000, 2000, 0);
   rcCH6 = readChannel(5, -100, 100, 0);
   key = readSwitch(6, true);
@@ -117,24 +111,24 @@ void loop() {
   SW = readChannel(8, -100, 100, 0);
   rcCH10 = readSwitch(9, true);
 
-    // Print values to serial monitor for debugging
-  Serial.print("Ch1 = ");
-  Serial.print(rcCH1);
+  //   // Print values to serial monitor for debugging
+  // Serial.print("Ch1 = ");
+  // Serial.print(rcCH1);
 
-  // Serial.print(" Ch2 = ");
-  // Serial.print(throttle_val);
+  // // Serial.print(" Ch2 = ");
+  // // Serial.print(throttle_val);
 
-  Serial.print(" Ch3 = ");
-  Serial.print(rcCH3);
+  // Serial.print(" Ch3 = ");
+  // Serial.print(rcCH3);
 
-  Serial.print(" Ch4 = ");
-  Serial.print(steer);
+  // Serial.print(" Ch4 = ");
+  // Serial.print(steer);
 
-  Serial.print(" Ch5 = ");
-  Serial.print(throttlespeedch);
+  // Serial.print(" Ch5 = ");
+  // Serial.print(throttlespeedch);
 
-  Serial.print(" Ch6 = ");
-  Serial.print(rcCH6);
+  // Serial.print(" Ch6 = ");
+  // Serial.print(rcCH6);
 
 ///////////////////////  KEY  ///////////////
 if(key ==0){
@@ -179,9 +173,9 @@ else if(SW > 20){
   digitalWrite(8,HIGH);
   digitalWrite(11,LOW);
 }
-////////////////// Steering /////////////
+////////////////// Steering //////////////////////////////////
 
-setpoint = map(steer,-100,100,80,-80);
+setpoint = map(steer,-10000,10000,80,-80);
 
  int encoderValue = as5600.readAngle();
 
@@ -205,11 +199,11 @@ setpoint = map(steer,-100,100,80,-80);
      digitalWrite(motorDirectionPin, LOW); // Set motor direction reverse
     digitalWrite(motorSpeedPin, scaledOutput); // Set motor speed
   }
-///////////////////////////////////Brake/////////////////////
+/////////////////////////////////// Brake ////////////////////////////////////////////////
 bool canExtend = !digitalRead(limitSwitch1);
   bool canRetract = !digitalRead(limitSwitch2);
 
-  // Move the actuator based on RC receiver switch state and limit switch conditions
+  // Move the brake actuator based on RC receiver switch state and limit switch conditions
   if (rcCH10 == HIGH && canExtend) {
     moveActuator(brakespeed, HIGH);  // Extend
   } else if (rcCH10 == LOW && canRetract) {
@@ -218,8 +212,8 @@ bool canExtend = !digitalRead(limitSwitch1);
     stopActuator();  // Stop if limit reached or switch state invalid
   }
 
-  Serial.print(" Ch7 = ");
-  Serial.print(output);
+  // Serial.print(" Ch7 = ");
+  // Serial.print(output);
 
   // Serial.print(" Ch8 = ");
   // Serial.print(IGN);
@@ -228,15 +222,15 @@ bool canExtend = !digitalRead(limitSwitch1);
   // Serial.print(SW);
 
   Serial.print(" Ch10 = ");
-  Serial.println(scaledOutput);
+  Serial.println(encoderValue);
 }
-// Function to move the actuator with specified speed and direction
+// Function to move the brake actuator with specified speed and direction
 void moveActuator(int speedValue, bool dirValue) {
   analogWrite(brakepwmPin, speedValue);  // Set PWM for speed control
   digitalWrite(brakedirPin, dirValue);   // Set direction
 }
 
-// Function to stop the actuator
+// Function to stop the brake actuator
 void stopActuator() {
   analogWrite(brakepwmPin, 0);  // Stop PWM
 }
