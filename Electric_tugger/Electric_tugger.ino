@@ -12,6 +12,8 @@ IBusBM ibus;
 
 int rcCH1 = 0;
 int throttle_val = 0; 
+int maxthrottlefrontspeed = 65;
+int maxthrottlebackspeed = 95;
 int rcCH3 = 0;
 int steer = 0; 
 int throttlespeedch = 0;
@@ -20,6 +22,8 @@ int key = 0;
 int IGN = 0;
 int SW = 0;
 bool rcCH10 = 0;
+int throttle;
+int throttle1;
 // Define pin numbers for motor driver inputs
 const int brakepwmPin = 6;    // PWM pin for speed control
 const int brakedirPin = 54;    // Direction pin
@@ -32,9 +36,9 @@ bool brakedirection = HIGH;  // HIGH for extending, LOW for retracting
 AS5600 as5600;   //  use default Wire
 
 // Define PID constants for steering
-double Kp = 2.6;//1
-double Ki = 0.000001;//0.001
-double Kd = 0.0000001;//0.001
+double Kp = 2.6;//2.6
+double Ki = 0.000001;//0.000001
+double Kd = 0.0000001;//0.0000001
 
 // Define variables for PID
 double setpoint = 0.0;
@@ -95,7 +99,7 @@ ibus.begin(Serial1);
 // Initialize PID
   pid.SetMode(AUTOMATIC);
   pid.SetOutputLimits(-255, 255); // Adjust output limits based on your motor driver
-  pid.SetSampleTime(20);          // Set PID sample time (ms)
+  pid.SetSampleTime(10);          // Set PID sample time (ms)-20
 }
 
 void loop() {
@@ -103,7 +107,7 @@ void loop() {
   rcCH1 = readChannel(0, -100, 100, 0);
   throttle_val = readChannel(1, -100, 100, 0);
   rcCH3 = readChannel(2, 0, 155, 0);
-  steer = readChannel(3, 10000, -10000, 0);
+  steer = readChannel(3, -80, 80, 0);
   throttlespeedch = readChannel(4, 1000, 2000, 0);
   rcCH6 = readChannel(5, -100, 100, 0);
   key = readSwitch(6, true);
@@ -111,24 +115,24 @@ void loop() {
   SW = readChannel(8, -100, 100, 0);
   rcCH10 = readSwitch(9, true);
 
-  //   // Print values to serial monitor for debugging
-  // Serial.print("Ch1 = ");
-  // Serial.print(rcCH1);
+    // Print values to serial monitor for debugging
+  Serial.print("Ch1 = ");
+  Serial.print(rcCH1);
 
-  // // Serial.print(" Ch2 = ");
-  // // Serial.print(throttle_val);
+  // Serial.print(" Ch2 = ");
+  // Serial.print(throttle_val);
 
-  // Serial.print(" Ch3 = ");
-  // Serial.print(rcCH3);
+  Serial.print(" Ch3 = ");
+  Serial.print(rcCH3);
 
-  // Serial.print(" Ch4 = ");
-  // Serial.print(steer);
+  Serial.print(" throttle_val = ");
+  Serial.print(throttle_val);
 
-  // Serial.print(" Ch5 = ");
-  // Serial.print(throttlespeedch);
+  Serial.print(" throttlespeedch = ");
+  Serial.print(throttlespeedch);
 
-  // Serial.print(" Ch6 = ");
-  // Serial.print(rcCH6);
+  Serial.print(" sw = ");
+  Serial.print(SW);
 
 ///////////////////////  KEY  ///////////////
 if(key ==0){
@@ -145,23 +149,35 @@ else if(IGN == 0){
   digitalWrite(12,HIGH);
 }
 //////////////////// Throttle/reverse ////////////////
-int throttlespeed = map(throttlespeedch,1000,2000,0,180);
+//low speed
+digitalWrite(8,LOW);
+digitalWrite(11,HIGH);
+// //mid speed
+// digitalWrite(8,HIGH);
+// digitalWrite(11,HIGH);
+// //high speed
+// digitalWrite(8,HIGH);
+// digitalWrite(11,LOW);
+
+//int throttlespeed = map(throttlespeedch,1000,2000,0,180);
+int throttlefrontspeed = maxthrottlefrontspeed;
+int throttlebackspeed = maxthrottlebackspeed;
 if (throttle_val == 0 || rcCH10 == LOW){
 analogWrite(2,0);
 }
 
 else if (throttle_val > 0 && key ==1){
 digitalWrite(7,HIGH);
-int throttle = map (throttle_val,0,100,0,throttlespeed);
+throttle = map (throttle_val,0,100,49,throttlefrontspeed);
 analogWrite(2,throttle);
 }
 else if (throttle_val < 0 && key ==1){
 digitalWrite(7,LOW);
-int throttle1 = map (throttle_val,0,-100,0,throttlespeed);
+throttle1 = map (throttle_val,0,-100,49,throttlebackspeed);
 analogWrite(2,throttle1);
 }
 //////////////////// Speed select /////////////
-if(SW == 0){
+/*if(SW == 0){
   digitalWrite(8,HIGH);
   digitalWrite(11,HIGH);
 }
@@ -172,10 +188,10 @@ else if(SW < -20){
 else if(SW > 20){
   digitalWrite(8,HIGH);
   digitalWrite(11,LOW);
-}
+}*/
 ////////////////// Steering //////////////////////////////////
 
-setpoint = map(steer,-10000,10000,80,-80);
+setpoint = steer;
 
  int encoderValue = as5600.readAngle();
 
@@ -190,7 +206,10 @@ setpoint = map(steer,-10000,10000,80,-80);
   pid.Compute();
 
   int scaledOutput = map(abs(output), 0, 255, 0, maxMotorSpeed);
-
+  // float scaledOutput = fabs(output);
+  // if (scaledOutput > 255) {
+  //   scaledOutput = 80;
+  // }
   // Control motor speed based on PID output
   if (angle < setpoint) {
      digitalWrite(motorDirectionPin, HIGH); // Set motor direction forward
@@ -222,7 +241,7 @@ bool canExtend = !digitalRead(limitSwitch1);
   // Serial.print(SW);
 
   Serial.print(" Ch10 = ");
-  Serial.println(encoderValue);
+  Serial.println(throttle1);
 }
 // Function to move the brake actuator with specified speed and direction
 void moveActuator(int speedValue, bool dirValue) {
